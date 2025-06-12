@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv(dotenv_path='BIA')
+load_dotenv()
 
 # Flask app setup
 app = Flask(__name__)
