@@ -1,14 +1,14 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 import csv, os, qrcode, smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from jinja2 import Template
 from werkzeug.utils import secure_filename
-
 from dotenv import load_dotenv
-load_dotenv(dotenv_path='BIA')
 
+# Load environment variables
+load_dotenv(dotenv_path='BIA')
 
 # Flask app setup
 app = Flask(__name__)
@@ -38,11 +38,12 @@ def generate_qr_code(name, email):
     img.save(path)
     return path
 
-# Routes
+# Home route
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# CSV upload route
 @app.route('/send-emails', methods=['POST'])
 def send_emails():
     if 'file' not in request.files:
@@ -58,37 +59,48 @@ def send_emails():
         for row in reader:
             name = row.get('Name')
             email = row.get('Email')
-
             if not name or not email:
                 continue
-
-            qr_path = generate_qr_code(name, email)
-            msg = MIMEMultipart()
-            msg['Subject'] = "Your Gen AI Masterclass Registration Confirmation"
-            msg['From'] = SENDER_EMAIL
-            msg['To'] = email
-
-            html_content = load_template(name)
-            msg.attach(MIMEText(html_content, 'html'))
-
-            # Attach QR
-            with open(qr_path, 'rb') as img:
-                image = MIMEImage(img.read())
-                image.add_header('Content-ID', '<qr_code>')
-                image.add_header('Content-Disposition', 'attachment', filename='qr_code.png')
-                msg.attach(image)
-            
-
-            # Send email
-            try:
-                with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
-                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                    server.sendmail(SENDER_EMAIL, email, msg.as_string())
-                print(f"[✓] Sent to {email}")
-            except Exception as e:
-                print(f"[✗] Failed to send to {email}: {e}")
-
+            send_email_with_qr(name, email)
     return 'All emails sent with QR codes!'
+
+# Webhook trigger route
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    name = data.get('Name')
+    email = data.get('Email')
+
+    if not name or not email:
+        return jsonify({'error': 'Missing name or email'}), 400
+
+    try:
+        send_email_with_qr(name, email)
+        return jsonify({'message': 'Email sent successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Common function to send email with QR
+def send_email_with_qr(name, email):
+    qr_path = generate_qr_code(name, email)
+    msg = MIMEMultipart()
+    msg['Subject'] = "Your Gen AI Masterclass Registration Confirmation"
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = email
+
+    html_content = load_template(name)
+    msg.attach(MIMEText(html_content, 'html'))
+
+    with open(qr_path, 'rb') as img:
+        image = MIMEImage(img.read())
+        image.add_header('Content-ID', '<qr_code>')
+        image.add_header('Content-Disposition', 'attachment', filename='qr_code.png')
+        msg.attach(image)
+
+    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, email, msg.as_string())
+    print(f"[✓] Sent to {email}")
 
 # Run the app
 if __name__ == '__main__':
