@@ -5,10 +5,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from jinja2 import Template
 from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+from dotenv import load_dotenv
+load_dotenv(dotenv_path='BIA')
+
 
 # Flask app setup
 app = Flask(__name__)
