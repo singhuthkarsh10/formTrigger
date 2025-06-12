@@ -1,8 +1,7 @@
 from flask import Flask, request, render_template, jsonify
-import csv, os, qrcode, smtplib
+import csv, os, smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
 from jinja2 import Template
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -14,29 +13,18 @@ load_dotenv(dotenv_path='BIA')
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs('qrcodes', exist_ok=True)
 
 # SMTP config from .env
-SENDER_EMAIL = 'biamanyata@gmail.com'
-SENDER_PASSWORD = 'tsir ixwj pfme mkjp'
-SMTP_SERVER = 'smtp.gmail.com'
-SMTP_PORT = 465
+SENDER_EMAIL = os.getenv('SENDER_EMAIL')
+SENDER_PASSWORD = os.getenv('SENDER_PASSWORD')
+SMTP_SERVER = os.getenv('SMTP_SERVER')
+SMTP_PORT = int(os.getenv('SMTP_PORT', 465))
 
 # Load HTML email template
 def load_template(name):
     with open('templates/email_template.html', encoding='utf-8') as f:
         template = Template(f.read())
     return template.render(name=name)
-
-# Generate QR code
-def generate_qr_code(name, email):
-    safe_name = name.replace(" ", "_").replace("@", "_at_")
-    filename = f"{safe_name}_{email}.png"
-    path = os.path.join("qrcodes", filename)
-    data = f"Name: {name}\nEmail: {email}"
-    img = qrcode.make(data)
-    img.save(path)
-    return path
 
 # Home route
 @app.route('/')
@@ -61,8 +49,9 @@ def send_emails():
             email = row.get('Email')
             if not name or not email:
                 continue
-            send_email_with_qr(name, email)
-    return 'All emails sent with QR codes!'
+            send_email(name, email)
+
+    return 'All welcome emails sent!'
 
 # Webhook trigger route
 @app.route('/webhook', methods=['POST'])
@@ -75,32 +64,28 @@ def webhook():
         return jsonify({'error': 'Missing name or email'}), 400
 
     try:
-        send_email_with_qr(name, email)
+        send_email(name, email)
         return jsonify({'message': 'Email sent successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Common function to send email with QR
-def send_email_with_qr(name, email):
-    qr_path = generate_qr_code(name, email)
+# Common function to send email
+def send_email(name, email):
     msg = MIMEMultipart()
-    msg['Subject'] = "Your Gen AI Masterclass Registration Confirmation"
+    msg['Subject'] = "Welcome to the Gen AI Masterclass!"
     msg['From'] = SENDER_EMAIL
     msg['To'] = email
 
     html_content = load_template(name)
     msg.attach(MIMEText(html_content, 'html'))
 
-    with open(qr_path, 'rb') as img:
-        image = MIMEImage(img.read())
-        image.add_header('Content-ID', '<qr_code>')
-        image.add_header('Content-Disposition', 'attachment', filename='qr_code.png')
-        msg.attach(image)
+    print(f"[INFO] Sending email to {email}...")
 
     with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.sendmail(SENDER_EMAIL, email, msg.as_string())
-    print(f"[✓] Sent to {email}")
+
+    print(f"[✓] Email sent to {email}")
 
 # Run the app
 if __name__ == '__main__':
