@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bulk Email Sender - BIA</title>
+</head>
+<body>
+    <h2>Send Bulk Emails</h2>
+    <form action="/send-emails" method="post" enctype="multipart/form-data">
+        <label>Select CSV file (with 'Name' and 'Email' columns):</label><br><br>
+        <input type="file" name="file" accept=".csv" required><br><br>
+        <button type="submit">Send Emails</button>
+    </form>
+</body>
+</html>
