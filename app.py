@@ -71,21 +71,29 @@ def webhook():
 
 # Common function to send email
 def send_email(name, email):
-    msg = MIMEMultipart()
-    msg['Subject'] = "Welcome to the Gen AI Masterclass!"
-    msg['From'] = SENDER_EMAIL
-    msg['To'] = email
+    try:
+        print(f"[INFO] Preparing email to {email}")
+        
+        html_content = load_template(name)
+        print(f"[INFO] Loaded email template for {name}")
 
-    html_content = load_template(name)
-    msg.attach(MIMEText(html_content, 'html'))
+        msg = MIMEMultipart()
+        msg['Subject'] = "Welcome to the Gen AI Masterclass!"
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = email
+        msg.attach(MIMEText(html_content, 'html'))
 
-    print(f"[INFO] Sending email to {email}...")
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            print(f"[INFO] Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT}")
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            print(f"[INFO] Logged in as {SENDER_EMAIL}")
+            server.sendmail(SENDER_EMAIL, email, msg.as_string())
 
-    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
-        server.login(SENDER_EMAIL, SENDER_PASSWORD)
-        server.sendmail(SENDER_EMAIL, email, msg.as_string())
+        print(f"[✓] Email sent to {email}")
 
-    print(f"[✓] Email sent to {email}")
+    except Exception as e:
+        print(f"[✗] Failed to send email to {email}: {e}")
+        raise e
 
 # Run the app
 if __name__ == '__main__':
